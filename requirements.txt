@@ -1,0 +1,8 @@
+# Python libraries this project needs.
+# Install them all with:  pip install -r requirements.txt
+#
+# ">=3.0,<4" means "any 3.x version": bug fixes yes, a future 4.0 that might
+# break our code no.
+
+flask>=3.0,<4      # the web framework: turns Python functions into web pages / API routes
+pytest>=8.0,<10    # the testing tool: runs our automated tests

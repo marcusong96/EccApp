@@ -1,0 +1,39 @@
+<!doctype html>
+<!--
+  templates/index.html - the structure of the page.
+  Flask sends this file when you open "/". It contains no task data itself:
+  static/app.js fetches the tasks from the API and fills in the <ul> below.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EccApp To-Do</title>
+  <!-- url_for builds the correct link to files in the static/ folder -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="card">
+    <h1>My To-Do List</h1>
+
+    <!-- The form: typing a title and pressing Enter or "Add" creates a task -->
+    <form id="new-task-form">
+      <label for="new-task-title" class="visually-hidden">New task</label>
+      <input id="new-task-title" type="text" placeholder="What needs doing?"
+             maxlength="200" autocomplete="off" required>
+      <button type="submit">Add</button>
+    </form>
+
+    <!-- Shown when something goes wrong (e.g. the server is down) -->
+    <p id="error-message" class="error" role="alert" hidden></p>
+
+    <!-- app.js puts one <li> per task in here -->
+    <ul id="task-list"></ul>
+
+    <p id="empty-message" class="muted" hidden>No tasks yet - add one above!</p>
+    <p id="summary" class="muted"></p>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
