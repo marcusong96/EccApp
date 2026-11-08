@@ -1,0 +1,5 @@
+# Python libraries this project needs.
+# Install them all with:  pip install -r requirements.txt
+
+flask>=3.0      # the web framework: turns Python functions into web pages / API routes
+pytest>=8.0     # the testing tool: runs our automated tests

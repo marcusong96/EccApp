@@ -1,0 +1,13 @@
+# Files git should NOT save to GitHub.
+
+# The SQLite database file - it's your local data, not source code.
+*.db
+
+# Python's auto-generated cache files.
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Virtual environment folder (each person creates their own).
+venv/
+.venv/
