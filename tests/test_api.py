@@ -8,11 +8,12 @@ Each test is a small story: "do X, expect Y". If the code breaks later,
 a test fails and tells you exactly which behaviour broke.
 """
 
+import sqlite3
+
 import pytest
 
 import db
 from app import create_app
-
 
 # ---------------------------------------------------------------------------
 # Fixtures: reusable setup that pytest gives to any test that asks for it
@@ -86,6 +87,18 @@ def test_create_rejects_non_json_body(client):
     assert response.status_code == 400
 
 
+def test_create_accepts_title_at_max_length(client):
+    assert add_task(client, "a" * 200).status_code == 201
+
+
+def test_create_rejects_too_long_title(client):
+    # The HTML form limits input to 200 characters, but anyone can call the
+    # API directly (e.g. with curl), so the server must check too.
+    response = add_task(client, "a" * 201)
+    assert response.status_code == 400
+    assert "error" in response.get_json()
+
+
 # ---------------------------------------------------------------------------
 # Toggling done / not done
 # ---------------------------------------------------------------------------
@@ -141,6 +154,30 @@ def test_tasks_survive_app_restart(db_path):
     create_app(db_path).test_client().post("/api/tasks", json={"title": "Buy milk"})
     restarted = create_app(db_path).test_client()
     assert [t["title"] for t in restarted.get("/api/tasks").get_json()] == ["Buy milk"]
+
+
+def test_database_connections_are_closed(client, monkeypatch):
+    # Record every connection the app opens, then check each one was closed.
+    opened = []
+    real_connect = sqlite3.connect
+
+    def tracking_connect(*args, **kwargs):
+        conn = real_connect(*args, **kwargs)
+        opened.append(conn)
+        return conn
+
+    monkeypatch.setattr(sqlite3, "connect", tracking_connect)
+
+    task_id = add_task(client, "Buy milk").get_json()["id"]
+    client.get("/api/tasks")
+    client.patch(f"/api/tasks/{task_id}")
+    client.delete(f"/api/tasks/{task_id}")
+
+    assert opened, "expected the app to open at least one connection"
+    for conn in opened:
+        # Using a closed connection raises ProgrammingError.
+        with pytest.raises(sqlite3.ProgrammingError):
+            conn.execute("SELECT 1")
 
 
 # ---------------------------------------------------------------------------

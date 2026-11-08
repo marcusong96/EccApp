@@ -12,12 +12,18 @@ Flow of one request:
 Start it with:  python app.py   then open http://127.0.0.1:5000
 """
 
+import os
+
 from flask import Flask, jsonify, render_template, request
 
 import db
 
 # Where the real database file lives. Tests use their own temporary file instead.
 DEFAULT_DB_PATH = "todo.db"
+
+# Longest title allowed. Matches maxlength="200" in templates/index.html,
+# but enforced HERE too, because anyone can call the API without the page.
+MAX_TITLE_LENGTH = 200
 
 
 def create_app(db_path=DEFAULT_DB_PATH):
@@ -60,7 +66,11 @@ def create_app(db_path=DEFAULT_DB_PATH):
         if not isinstance(title, str) or not title.strip():
             return error("Title must be a non-empty string", 400)
 
-        task = db.create_task(db_path, title.strip())
+        title = title.strip()
+        if len(title) > MAX_TITLE_LENGTH:
+            return error(f"Title must be at most {MAX_TITLE_LENGTH} characters", 400)
+
+        task = db.create_task(db_path, title)
         return jsonify(task), 201
 
     @app.patch("/api/tasks/<int:task_id>")
@@ -85,6 +95,8 @@ def create_app(db_path=DEFAULT_DB_PATH):
 # This block only runs when you start the file directly (python app.py),
 # not when the tests import it.
 if __name__ == "__main__":
-    # debug=True reloads on code changes and shows helpful error pages.
-    # Never use debug mode on a public server.
-    create_app().run(debug=True)
+    # Debug mode reloads on code changes and shows an in-browser debugger that
+    # can run code - so it is OFF unless you ask for it:
+    #     FLASK_DEBUG=1 python app.py
+    # Never turn it on for a server other people can reach.
+    create_app().run(debug=os.environ.get("FLASK_DEBUG") == "1")

@@ -11,15 +11,32 @@ touch your real data.
 """
 
 import sqlite3
-from datetime import datetime, timezone
+from contextlib import contextmanager
+from datetime import UTC, datetime
 
 
+@contextmanager
 def get_connection(db_path):
-    """Open a connection to the SQLite file (it is created if missing)."""
+    """Open a connection, and ALWAYS close it afterwards.
+
+    Use it like:
+        with get_connection(db_path) as conn:
+            conn.execute(...)
+
+    On leaving the `with` block, changes are committed (saved) - or rolled
+    back (undone) if an error happened - and then the connection is closed.
+
+    Note: sqlite3's own `with conn:` only commits; it does NOT close the
+    connection. That is why we wrap it here (found in the Phase 7 code review).
+    """
     conn = sqlite3.connect(db_path)
     # Return rows that behave like dictionaries: row["title"] instead of row[1].
     conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        with conn:  # commit on success, roll back on error
+            yield conn
+    finally:
+        conn.close()  # runs no matter what - even if an error was raised
 
 
 def init_db(db_path):
@@ -47,6 +64,12 @@ def _row_to_dict(row):
     }
 
 
+def _fetch_task(conn, task_id):
+    """Read one task using an already-open connection. Returns a dict or None."""
+    row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    return _row_to_dict(row) if row else None
+
+
 def list_tasks(db_path):
     """Return every task, oldest first."""
     with get_connection(db_path) as conn:
@@ -57,13 +80,12 @@ def list_tasks(db_path):
 def get_task(db_path, task_id):
     """Return one task as a dict, or None if that id does not exist."""
     with get_connection(db_path) as conn:
-        row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
-    return _row_to_dict(row) if row else None
+        return _fetch_task(conn, task_id)
 
 
 def create_task(db_path, title):
     """Insert a new task and return it."""
-    created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    created_at = datetime.now(UTC).isoformat(timespec="seconds")
     with get_connection(db_path) as conn:
         # The "?" placeholders let SQLite insert the values safely.
         # Never build SQL by gluing strings together - that allows SQL injection.
@@ -71,12 +93,12 @@ def create_task(db_path, title):
             "INSERT INTO tasks (title, created_at) VALUES (?, ?)",
             (title, created_at),
         )
-        new_id = cursor.lastrowid
-    return get_task(db_path, new_id)
+        return _fetch_task(conn, cursor.lastrowid)
 
 
 def toggle_task(db_path, task_id):
     """Flip a task between done and not done. Returns the updated task, or None if missing."""
+    # Update and re-read in ONE connection, so nothing can change in between.
     with get_connection(db_path) as conn:
         cursor = conn.execute(
             "UPDATE tasks SET done = 1 - done WHERE id = ?",  # 1-0 = 1, 1-1 = 0
@@ -84,11 +106,11 @@ def toggle_task(db_path, task_id):
         )
         if cursor.rowcount == 0:  # no row matched that id
             return None
-    return get_task(db_path, task_id)
+        return _fetch_task(conn, task_id)
 
 
 def delete_task(db_path, task_id):
     """Delete a task. Returns True if something was deleted, False if the id was not found."""
     with get_connection(db_path) as conn:
         cursor = conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
-    return cursor.rowcount > 0
+        return cursor.rowcount > 0

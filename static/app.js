@@ -13,6 +13,7 @@
 // Grab the page elements we need once, up front.
 const form = document.getElementById("new-task-form");
 const input = document.getElementById("new-task-title");
+const addButton = form.querySelector("button[type=submit]");
 const list = document.getElementById("task-list");
 const emptyMessage = document.getElementById("empty-message");
 const summary = document.getElementById("summary");
@@ -91,8 +92,9 @@ async function loadTasks() {
 /*
   run() - do an action, then refresh the list. Any error along the way is
   shown on the page instead of failing silently.
+  With no action given, it just loads and shows the tasks.
 */
-async function run(action) {
+async function run(action = async () => {}) {
   try {
     showError("");
     await action();
@@ -102,16 +104,30 @@ async function run(action) {
   }
 }
 
+// True while a "create task" request is on its way to the server.
+let adding = false;
+
 // Creating a task: the form's "submit" fires on Enter or clicking "Add".
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault(); // stop the browser reloading the page
   const title = input.value.trim();
-  if (!title) return;
-  run(async () => {
-    await api("POST", "/api/tasks", { title });
-    input.value = "";
-  });
+  // Ignore empty input, and ignore extra submits while one is still in
+  // progress (pressing Enter twice quickly would otherwise add duplicates).
+  if (!title || adding) return;
+
+  adding = true;
+  addButton.disabled = true;
+  try {
+    await run(async () => {
+      await api("POST", "/api/tasks", { title });
+      input.value = "";
+    });
+  } finally {
+    adding = false;
+    addButton.disabled = false;
+    input.focus();
+  }
 });
 
 // Show the tasks as soon as the page opens.
-run(() => {});
+run();
