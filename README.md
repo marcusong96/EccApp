@@ -50,8 +50,11 @@ terminal to stop the server.
 > Port 5000 busy (common on macOS because of AirPlay)? Run
 > `flask --app app run --port 5001` and open http://127.0.0.1:5001.
 >
-> Want auto-reload while editing code? `FLASK_DEBUG=1 python app.py`
-> (only on your own machine - debug mode must never be reachable by others).
+> Want auto-reload while editing code? Turn on debug mode
+> (only on your own machine - debug mode must never be reachable by others):
+>
+> - Mac / Linux: `FLASK_DEBUG=1 python app.py`
+> - Windows PowerShell: `$env:FLASK_DEBUG=1; python app.py`
 
 ## Run the tests
 
@@ -62,6 +65,9 @@ python -m pytest -v
 ```
 
 Each test gets its own temporary database, so tests never touch your real data.
+
+The same lint and tests also run automatically on GitHub for every push and
+pull request (see `.github/workflows/tests.yml`).
 
 ---
 

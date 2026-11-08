@@ -33,17 +33,25 @@ def create_app(db_path=DEFAULT_DB_PATH):
     fresh one on demand. That lets each test create an app with its own database.
     """
     app = Flask(__name__)
+    # Refuse request bodies over 16 KB before reading them into memory.
+    # (A task is at most 200 characters, so real requests are far smaller.)
+    app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
     db.init_db(db_path)  # make sure the tasks table exists before any request
 
     def error(message, status):
         """Every error response has the same shape: {"error": "..."} + a status code."""
         return jsonify({"error": message}), status
 
+    @app.errorhandler(413)
+    def too_large(_exc):
+        # Flask's default 413 page is HTML; send our usual JSON error instead.
+        return error("Request body is too large", 413)
+
     # ---------------------------------------------------------------- page --
 
     @app.get("/")
     def home():
-        # Looks for templates/index.html (we build it in the next phase).
+        # Sends templates/index.html; static/app.js then loads the tasks.
         return render_template("index.html")
 
     # ----------------------------------------------------------------- API --

@@ -8,6 +8,7 @@ Each test is a small story: "do X, expect Y". If the code breaks later,
 a test fails and tells you exactly which behaviour broke.
 """
 
+import json
 import sqlite3
 
 import pytest
@@ -89,6 +90,15 @@ def test_create_rejects_non_json_body(client):
 
 def test_create_accepts_title_at_max_length(client):
     assert add_task(client, "a" * 200).status_code == 201
+
+
+def test_create_rejects_oversized_request_body(client):
+    # A huge body must be refused BEFORE it is read into memory - even if the
+    # title inside it is fine. 413 = "Payload Too Large".
+    big_body = json.dumps({"title": "ok", "padding": "x" * 100_000})
+    response = client.post("/api/tasks", data=big_body, content_type="application/json")
+    assert response.status_code == 413
+    assert "error" in response.get_json()  # same JSON error shape as other errors
 
 
 def test_create_rejects_too_long_title(client):
